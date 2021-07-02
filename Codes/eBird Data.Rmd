@@ -39,6 +39,18 @@ ebdfiltered = auk_filter(ebdfiltes1,file=fout,awk_file=tempdata,execute = TRUE,o
 ebdf = read_ebd(ebdfiltered)
 ```
 
+Now we need to find out how to create distinct events based on the date a given bird was observed and it cooresponding species.
+
+```{r}
+attach(ebdf)
+observation_date = order(observation_date)
+for (i in 1:33275) {for (j in 1:33725)
+  if ((observation_date[j]-40 <=  observation_date[i] <= observation_date[j]+40)&(common_name[i] = common_name[j]))
+   {print(i)}
+    else {print(i+1)}
+  }
+```
+
 The code below will produce a data frame for the ABA code 3, 4 and 5 birds from 2008-2017. 
 
 ```{r}
