@@ -12,6 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 The code below will produce a data frame for the ABA code 4 and 5 birds from 2008-2017. 
 
 ```{r}
+codes = read.csv(file="C:/Users/joshp/OneDrive/Documents/eBird/ABA Checklist.csv")
+
+```
+
+
+```{r}
 # set the library so we can use the auk package
 library(auk)
 # set the path to the EBD data 
@@ -42,13 +48,13 @@ ebdf = read_ebd(ebdfiltered)
 Now we need to find out how to create distinct events based on the date a given bird was observed and it cooresponding species.
 
 ```{r}
-attach(ebdf)
-observation_date = order(observation_date)
-for (i in 1:33275) {for (j in 1:33725)
-  if ((observation_date[j]-40 <=  observation_date[i] <= observation_date[j]+40)&(common_name[i] = common_name[j]))
-   {print(i)}
-    else {print(i+1)}
-  }
+thresh <-numeric(nrow(ebdfo))
+event.no <-numeric(nrow(ebdfo))
+event.no <- function(ebdfo,thresh)
+{event.no[1]<-1
+for (i in 2:nrow(edbfo))
+  sp.curr <-ebdfo$scientific_name[i]
+  date.curr <-ebdfo$observation_date[i]}
 ```
 
 The code below will produce a data frame for the ABA code 3, 4 and 5 birds from 2008-2017. 
@@ -79,5 +85,70 @@ ebdfiltes2 = auk_species(ebdfilter,c("Anser fabalis","Anser serrirostris","Cygnu
 ebdfiltered1 = auk_filter(ebdfiltes2,file=fout1,awk_file=tempdata1,execute = TRUE,overwrite = TRUE)
 # creates a data frame for the filtered EBD data
 ebdf1 = read_ebd(ebdfiltered1)
+```
+
+The following function will find the distance in km between any two latitude and longitude coordinates.
+```{r}
+ebdf.ordered$dist.thresh<-numeric(nrow(ebdf.ordered))
+ebdf.ordered$dist.thresh <- 9000
+```
+
+
+
+```{r}
+ebdf.ordered <- ebdf1[order(ebdf1$observation_date),] 
+ebdf.ordered$ABA_Code <-numeric(nrow(ebdf.ordered))
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA3] <- 3
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA4] <- 4
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA5] <- 5
+ebdf.ordered$treshold <-numeric(nrow(ebdf.ordered))
+ebdf.ordered$treshold[ebdf.ordered$ABA_Code==3]<-14
+ebdf.ordered$treshold[ebdf.ordered$ABA_Code==4]<-31
+ebdf.ordered$treshold[ebdf.ordered$ABA_Code==5]<-62
+
+ebdf.ordered$event.no <- numeric(nrow(ebdf.ordered))
+ebdf.ordered$event.no[1]<-1
+
+thresh <-numeric(nrow(ebdf.ordered))
+dist <- numeric(nrow(ebdf.ordered))
+
+event <- function(data)
+{
+for (i in 2:nrow(data))
+  data<-ebdf.ordered
+  sp.curr <-data$scientific_name[i]
+  date.curr <-ymd(data$observation_date[i])
+  long1 <- data$longitude[(i-1)]
+  long2 <- data$longitude[i]
+  lat1 <- data$latitude[(i-1)]
+  lat2 <- data$latitude[i]
+  thresh <- data$treshold[i]
+  dist <- data$dist.thresh[i]
+  int1<-ymd(data$observation_date[1:(i-1)])-thresh
+  int2<-ymd(data$observation_date[1:(i-1)])+thresh
+if ((between(date.curr,min(int1),max(int2))==TRUE)&
+    (distHaversine(c(long1,lat1),c(long2,lat2))<dist)
+  &(sp.curr %in% data$scientific_name[1:(i-1)])) 
+    {ebdf.ordered$event.no[i]<-(i-1)}
+# need to do a which function here to pick out the indicies that satisfy the three conditons above, then using that which assign those indicies the same event.no # 
+  else ebdf.ordered$event.no[i]<-i  
+}
+event(ebdf.ordered)  
+```
+
+
+```{r}
+write.csv(ebdf.ordered,file="C:/Users/joshp/OneDrive - Oklahoma A and M System/SUMMER 2021/Research/eBirddataframe.csv")
+```
+
+Now we want to merge the rows of the data set that have the same event number.
+
+```{r}
+# using the dplyr package and the group.by function to group by the event.no, then usign the summarize we can find the mean, min, max #
+library("dplyr")
+for (i in 1:nrow(ebdf.ordered))
+{
+  if (ebdf.ordered$event.no[i] == ebdf.ordered$event.no[(i+1)])
+}
 ```
 
