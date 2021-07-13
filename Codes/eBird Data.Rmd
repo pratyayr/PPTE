@@ -101,38 +101,62 @@ ebdf.ordered$ABA_Code <-numeric(nrow(ebdf.ordered))
 ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA3] <- 3
 ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA4] <- 4
 ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA5] <- 5
-ebdf.ordered$treshold <-numeric(nrow(ebdf.ordered))
-ebdf.ordered$treshold[ebdf.ordered$ABA_Code==3]<-14
-ebdf.ordered$treshold[ebdf.ordered$ABA_Code==4]<-31
-ebdf.ordered$treshold[ebdf.ordered$ABA_Code==5]<-62
+ebdf.ordered$threshold <-numeric(nrow(ebdf.ordered))
+ebdf.ordered$threshold[ebdf.ordered$ABA_Code==3]<-14
+ebdf.ordered$threshold[ebdf.ordered$ABA_Code==4]<-31
+ebdf.ordered$threshold[ebdf.ordered$ABA_Code==5]<-62
+```
 
+Algorithm for the first funciton
+
+# defining function (call it event): input arguments - data frame of interest (ebdf.ordered) # 
+# initalize a numeric vector of length nrow(ebdf.ordered) for the event numbers of each checklist - call it event.no #
+# give the first row the event.no<-1 # 
+# initalize a numeric vector of length nrow(ebdf.ordered) for the threshold number of days between the bird sightings - call it thresh #
+# initializ a numric vector of length of nrow(ebdf.ordered) for the buffer  distance of 9,000m or 9km - call it dist #
+# for (i in 2:nrow(ebdf.ordered))
+#  give the scientific name of the bird in row (i) - call it sp.curr #
+#  give the current observation date in row (i) - call it date.curr #
+#  give the longitude of the bird sighting in the (i-1) row - call it long1 #
+#  give the latitude of the bird sighting in the (i-1) row - call it lat1 #
+#  give the longitude of the bird sighting in the (i) row - call it long2 #
+#  give the latitude of the bird sighting in the (i) row - call it lat2 #
+#  give the threshold number of days of the ith row based on the ABA Code - call it thresh #
+#  give the distance threshold for the maximum distance between two long/lat coordinates - call it dist #
+# using an if statement to see if three things happen (1) the scientific name of the current row [i] is the same as the scientific name in the [1:(i-1)] (2) the distance between the two latitude and longitude coordinates is at most 9km (3) the row [i] observation date is within the thresh number of days of observation dates within rows [1:(i-1)] #
+# using a which statement to say if these conditions are satisfied we give the row [j] the same event number as the row that it matches the three conditions with above #
+# else assign the event.no to be the next number in the string of event numbers#
+
+```{r}
+event <- function(ebdf.ordered)
+{
 ebdf.ordered$event.no <- numeric(nrow(ebdf.ordered))
 ebdf.ordered$event.no[1]<-1
-
 thresh <-numeric(nrow(ebdf.ordered))
 dist <- numeric(nrow(ebdf.ordered))
-
-event <- function(data)
-{
-for (i in 2:nrow(data))
-  data<-ebdf.ordered
-  sp.curr <-data$scientific_name[i]
-  date.curr <-ymd(data$observation_date[i])
-  long1 <- data$longitude[(i-1)]
-  long2 <- data$longitude[i]
-  lat1 <- data$latitude[(i-1)]
-  lat2 <- data$latitude[i]
-  thresh <- data$treshold[i]
-  dist <- data$dist.thresh[i]
-  int1<-ymd(data$observation_date[1:(i-1)])-thresh
-  int2<-ymd(data$observation_date[1:(i-1)])+thresh
-if ((between(date.curr,min(int1),max(int2))==TRUE)&
-    (distHaversine(c(long1,lat1),c(long2,lat2))<dist)
-  &(sp.curr %in% data$scientific_name[1:(i-1)])) 
-    {ebdf.ordered$event.no[i]<-(i-1)}
-# need to do a which function here to pick out the indicies that satisfy the three conditons above, then using that which assign those indicies the same event.no # 
-  else ebdf.ordered$event.no[i]<-i  
+counter<- 1  
+check<-numeric(nrow(ebdf.ordered))
+for (i in 2:nrow(ebdf.ordered)) {
+  for(j in 1:(i-1)) {
+  
+  sp.curr <-ebdf.ordered$scientific_name[i]
+  date.curr <-ebdf.ordered$observation_date[i]
+  long2 <- ebdf.ordered$longitude[i]
+  lat2 <- ebdf.ordered$latitude[i]
+  thresh <- ebdf.ordered$threshold[i]
+  dist <- ebdf.ordered$dist.thresh[i] 
+  long1 <- ebdf.ordered$longitude[j]
+  lat1 <- ebdf.ordered$latitude[j]
+  if (((as.numeric(date.curr)-as.numeric(ebdf.ordered$observation_date[j]))<thresh)&(sp.curr == ebdf.ordered$scientific_name[j])&(distHaversine(c(long1,lat1),c(long2,lat2))<dist))
+  {check[i] <- 1
+  ind<-which(check==1)
+  ebdf.ordered$event.no[i]<-ebdf.ordered$event.no[ind]
+  ebdf.ordered$event.no<-counter
 }
+  else {counter<-(counter+1)
+        ebdf.ordered$event.no[i]<-counter}
+  }}
+}  
 event(ebdf.ordered)  
 ```
 
@@ -143,6 +167,16 @@ write.csv(ebdf.ordered,file="C:/Users/joshp/OneDrive - Oklahoma A and M System/S
 
 Now we want to merge the rows of the data set that have the same event number.
 
+Algorithm for the second function
+
+# defining function (call it clean.up): input arguments the data set of interest  (ebdf.ordered) #
+# group the data by the rows with the same event.no #
+# keep the first (initial) observation date and the final observation date #
+# when dealing with the location (ie lat and long) just take the location to be the initial sighting location #
+# then for the number of observations we want to record the max, mean, and the initial number of observations for each event #
+# find the mean number of observers #
+# finally record the number of checklists for each event #
+
 ```{r}
 # using the dplyr package and the group.by function to group by the event.no, then usign the summarize we can find the mean, min, max #
 library("dplyr")
@@ -151,4 +185,14 @@ for (i in 1:nrow(ebdf.ordered))
   if (ebdf.ordered$event.no[i] == ebdf.ordered$event.no[(i+1)])
 }
 ```
+
+
+
+```{r}
+for (i in 1:50) 
+  {
+  print(max((as.numeric(ebdf.ordered$observation_date[i])-as.numeric(ebdf.ordered$observation_date[(1:i-1)])))) }
+
+```
+
 
