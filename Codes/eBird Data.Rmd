@@ -94,6 +94,12 @@ ebdf.ordered$dist.thresh <- 9000
 ```
 
 
+```{r}
+ebdf.ordered.rarest <- ebdf.ordered[which(ebdf.ordered$ABA_Code %in% 4,5), ]
+eventno2<-event(ebdf.ordered.rarest)
+```
+
+
 
 ```{r}
 ebdf.ordered <- ebdf1[order(ebdf1$observation_date),] 
@@ -128,36 +134,42 @@ Algorithm for the first funciton
 # else assign the event.no to be the next number in the string of event numbers#
 
 ```{r}
-event <- function(ebdf.ordered)
+event <- function(dat)
 {
-ebdf.ordered$event.no <- numeric(nrow(ebdf.ordered))
-ebdf.ordered$event.no[1]<-1
-thresh <-numeric(nrow(ebdf.ordered))
-dist <- numeric(nrow(ebdf.ordered))
+dat$event.no <- numeric(nrow(dat))
+dat$event.no[1]<-1
+#thresh <-numeric(nrow(dat))
+#distthresh <- numeric(nrow(dat))
 counter<- 1  
-check<-numeric(nrow(ebdf.ordered))
-for (i in 2:nrow(ebdf.ordered)) {
-  for(j in 1:(i-1)) {
+dat<-ebdf.ordered
+
+for (i in 2:nrow(dat)) {
+  if (floor(i/1000) == i/1000){print(i)}
   
-  sp.curr <-ebdf.ordered$scientific_name[i]
-  date.curr <-ebdf.ordered$observation_date[i]
-  long2 <- ebdf.ordered$longitude[i]
-  lat2 <- ebdf.ordered$latitude[i]
-  thresh <- ebdf.ordered$threshold[i]
-  dist <- ebdf.ordered$dist.thresh[i] 
-  long1 <- ebdf.ordered$longitude[j]
-  lat1 <- ebdf.ordered$latitude[j]
-  if (((as.numeric(date.curr)-as.numeric(ebdf.ordered$observation_date[j]))<thresh)&(sp.curr == ebdf.ordered$scientific_name[j])&(distHaversine(c(long1,lat1),c(long2,lat2))<dist))
-  {check[i] <- 1
-  ind<-which(check==1)
-  ebdf.ordered$event.no[i]<-ebdf.ordered$event.no[ind]
-  ebdf.ordered$event.no<-counter
+  sp.curr <-dat$scientific_name[i]
+  date.curr <-dat$observation_date[i]
+  long2 <- dat$longitude[i]
+  lat2 <- dat$latitude[i]
+  thresh <- dat$threshold[i]
+  distthresh <- dat$dist.thresh[i] 
+  
+  check<-numeric(i-1)  
+  for(j in 1:(i-1)) {
+    long1 <- dat$longitude[j]
+    lat1 <- dat$latitude[j]
+    if (((as.numeric(date.curr)-as.numeric(dat$observation_date[j]))<thresh)&(sp.curr == dat$scientific_name[j])&(distHaversine(c(long1,lat1),c(long2,lat2))<distthresh))
+    {check[j] <- 1}
+  }
+  
+  ind<- which(check==1)
+  if (length(ind)>0){dat$event.no[i]<-dat$event.no[ind[1]]
+  
+  }else{counter<-(counter+1)
+  dat$event.no[i]<-counter}
 }
-  else {counter<-(counter+1)
-        ebdf.ordered$event.no[i]<-counter}
-  }}
-}  
-event(ebdf.ordered)  
+return(dat$event.no)
+}
+event(dat = ebdf.ordered)  
 ```
 
 
@@ -180,19 +192,42 @@ Algorithm for the second function
 ```{r}
 # using the dplyr package and the group.by function to group by the event.no, then usign the summarize we can find the mean, min, max #
 library("dplyr")
-for (i in 1:nrow(ebdf.ordered))
-{
-  if (ebdf.ordered$event.no[i] == ebdf.ordered$event.no[(i+1)])
+
+str(data_final)
+cleanup <-function(dat){
+  
+data_final<-data.frame(Event_Number<-numeric(),
+                       Date_Inital=as.Date(character()),
+                       Date_Final=as.Date(character()),
+                       Longitude=numeric(),
+                       Latitude=numeric(),
+                       Max_Observations=numeric(),
+                       Mean_Observations=numeric(),
+                       Inital_Observations=numeric(),
+                       Mean_Observers=numeric(),
+                       No_Checklists=numeric(),
+                       stringsAsFactors = FALSE)  
+
+for (i in 1:max(dat$event.no)) {
+
+  dat.curr<-dat[which(ebdf.ordered$event.no==i)]  
+  n<-nrow(dat.curr)
+      data_final$Event_Number[i]<-i
+      data_final$Date_Inital[i]<-dat.curr$observation_date[1]
+      data_final$Date_Final[i]<-dat.curr$observation_date[n]
+      data_final$Longitude[i]<-dat.curr$longitude[1]
+      data_final$Latitude[i]<-dat.curr$latitude[1]
+      data_final$Max_Observations[i]<-max(dat.curr$observation_count)
+      data_final$Mean_Observations[i]<-mean(dat.curr$observation_count)
+      data_final$Inital_Observations[i]<-dat.curr$observation_count[1]
+      data_final$Mean_Observers[i]<-mean(dat.curr$number_observers)
+      data_final$No_Checklists[i]<-nrow(dat.curr)
+      }
+return(dat)
 }
+cleanup(dat = ebdf.ordered)
 ```
 
 
-
-```{r}
-for (i in 1:50) 
-  {
-  print(max((as.numeric(ebdf.ordered$observation_date[i])-as.numeric(ebdf.ordered$observation_date[(1:i-1)])))) }
-
-```
 
 
