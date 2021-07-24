@@ -1,0 +1,113 @@
+---
+title: "eBird Extra"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ebdf.ordered<-read.csv("~/OneDrive - Oklahoma A and M System/SUMMER 2021/Research/data_code345.csv",header = TRUE)
+codes = read.csv(file = "~/OneDrive - Oklahoma A and M System/SUMMER 2021/Research/ABA Checklist.csv", header = T)
+
+ebdf.ordered <- ebdf[order(ebdf$observation_date),] 
+
+ABA3 <- codes$Sc_name[which(codes$Code %in% c(3))]
+ABA4 <- codes$Sc_name[which(codes$Code %in% c(4))]
+ABA5 <- codes$Sc_name[which(codes$Code %in% c(5))]
+
+ebdf.ordered$ABA_Code <-numeric(nrow(ebdf.ordered))
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA3] <- 3
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA4] <- 4
+ebdf.ordered$ABA_Code[ebdf.ordered$scientific_name %in% ABA5] <- 5
+
+thresh <-numeric(nrow(ebdf.ordered))
+ebdf.ordered$thresh[ebdf.ordered$ABA_Code==3]<-14
+ebdf.ordered$thresh[ebdf.ordered$ABA_Code==4]<-31
+ebdf.ordered$thresh[ebdf.ordered$ABA_Code==5]<-62
+
+ebdf.ordered$observation_date<-as.Date(ebdf$observation_date,format = "%m/%d/%Y")
+```
+
+
+
+```{r}
+event <- function(dat)
+{
+dat$event.no <- numeric(nrow(dat))
+dat$event.no[1]<-1
+# thresh <-numeric(nrow(dat))
+distthresh <- 9000
+counter<- 1  
+
+for (i in 2:nrow(dat)) {
+  if (floor(i/1000) == i/1000){print(i)}
+  
+  sp.curr <-dat$scientific_name[i]
+  date.curr <-dat$observation_date[i]
+  long2 <- dat$longitude[i]
+  lat2 <- dat$latitude[i]
+  threshold <- dat$thresh[i]
+  
+  check<-numeric(i-1)  
+  for(j in 1:(i-1)) {
+    long1 <- dat$longitude[j]
+    lat1 <- dat$latitude[j]
+    if (((as.numeric(date.curr)-as.numeric(dat$observation_date[j]))<threshold)&(sp.curr == dat$scientific_name[j])&(distHaversine(c(long1,lat1),c(long2,lat2))<distthresh))
+    {check[j] <- 1}
+  }
+  
+  ind<- which(check==1)
+  if (length(ind)>0){dat$event.no[i]<-dat$event.no[ind[1]]
+  
+  }else{counter<-(counter+1)
+  dat$event.no[i]<-counter}
+}
+return(dat$event.no)
+}
+eventno<-event(dat = ebdf.ordered)
+ebdf.ordered$event.no<-eventno
+```
+
+```{r}
+cleanup <-function(dat){
+
+dat$observation_count<-as.numeric(dat$observation_count)
+m <- max(dat$event.no)
+data_final<-data.frame(Event_Number<-numeric(m),
+                       Species=character(m),
+                       Scientific_Name=character(m),
+                       Date_Inital=as.Date(numeric(m),origin= "01-01-1900"),
+                       Date_Final=as.Date(numeric(m),origin= "01-01-1900"),
+                       Longitude=numeric(m),
+                       Latitude=numeric(m),
+                       Max_Observations=numeric(m),
+                       Mean_Observations=numeric(m),
+                       Inital_Observations=numeric(m),
+                       Mean_Observers=numeric(m),
+                       No_Checklists=numeric(m),
+                       stringsAsFactors = FALSE)  
+
+for (i in 1:max(dat$event.no)) {
+
+  dat.curr<-dat[which(dat$event.no==i)]  
+  n<-nrow(dat.curr)
+      data_final$Event_Number[i]<-i
+      data_fina$Species[i]<-dat.curr$common_name[1]
+      data_final$Scientific_Name[i]<dat.curr$scientific_name[1]
+      data_final$Date_Inital[i]<-dat.curr$observation_date[1]
+      data_final$Date_Final[i]<-dat.curr$observation_date[n]
+      data_final$Longitude[i]<-dat.curr$longitude[1]
+      data_final$Latitude[i]<-dat.curr$latitude[1]
+      data_final$Max_Observations[i]<-max(dat.curr$observation_count,na.rm=T)
+      data_final$Mean_Observations[i]<-mean(dat.curr$observation_count,na.rm=T)
+      data_final$Inital_Observations[i]<-dat.curr$observation_count[1]
+      data_final$Mean_Observers[i]<-mean(dat.curr$number_observers,na.rm=T)
+      data_final$No_Checklists[i]<-nrow(dat.curr)
+      if(is.infinite(data_final$Max_Observations[i])){break}
+      }
+return(data_final)
+}
+eBird<-cleanup(dat = ebdf.ordered)
+```
